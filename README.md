@@ -61,6 +61,8 @@ train_df.isnull().sum()
 ax = sns.countplot(x='smoking', data=(train_df))
 ax.set_xticklabels(['non-smoking', 'smoking'])
 ```
+![Class imbalance]([https://github.com/[username]/[reponame]/blob/[branch]/image.jpg?raw=true](https://github.com/Pinegraphite123/Smoking-prediction/blob/fd8aa0a4d16530bef762a4d832ed99dc42ba3a23/Graphs/Class%20imbalance.png))
+
 
 
 
