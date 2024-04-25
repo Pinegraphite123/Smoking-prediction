@@ -155,11 +155,245 @@ plt.show()
 ![CorrMatrixCleaned](https://github.com/Pinegraphite123/Smoking-prediction/blob/main/Graphs/CorrMatrixCleaned.png?raw=true)
 
 
+# Supervised learning
+Using Gridsearchcv to exhaustly find the best hyperparameter so you can tweek with other option to improve the model, such as adjusting train test split
+
+Split train data into train data and test data
+
+80% train data, 20% test data
+```python
+X = train_df.iloc[:,:-1]
+y = train_df['smoking']
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.5, random_state=1234, stratify=y)
+```
 
 
+Chosen model:
+
+Logistic regression
+
+Random forest
+
+Decision tree
+
+These model is chosen because the goal is data classification.
+
+```python
+# Scale the train data
+scaler = StandardScaler()
+
+# fit on standardscaler computes mean and stv for each feature
+scaler.fit(X_train)
+
+# Apply transform to both the training set and the test set, so the data is scaled
+X_train = scaler.transform(X_train)
+X_test = scaler.transform(X_test)
+```
+
+Use GridSearchCv to find the optimal parameters
+```python
+def find_best_model(X, y):
+    models = {
+        'logistic_regression': { ### Penalty='elasticnet',both L1 and L2 regularization. Solver='saga', algorithm for big dataset for faster computation. Max_iter, Maximum number of iterations taken for gridsearch to reach best parameters. ###
+            'pipe': Pipeline([('scaler', StandardScaler()), ('LR', LogisticRegression(penalty='elasticnet', random_state=1234, solver='saga', max_iter=2000))]),
+            'param_grid': [{ ### C is a regularization parameter that controls the trade off between the achieving a low training error and a low testing error that is the ability to generalize your classifier to unseen data
+                'LR__C': [0.0001, 0.001, 0.01, 0.1, 1, 10, 100], ### The inverse of regularization strength for LogisticRegression. Smaller values specify stronger regularization.
+                'LR__l1_ratio': [0, 0.2, 0.4, 0.6, 0.8, 1] ### allow the model to explore various combinations of L1 and L2 regularization
+            }]
+        },
+        'decision_tree': {
+            'pipe': Pipeline([('scaler', StandardScaler()), ('DT', DecisionTreeClassifier(class_weight='balanced', random_state=1234))]),
+            'param_grid': [{
+                'DT__criterion': ['gini', 'entropy', 'log_loss'], ### 3 similar formula used to calculate for decision tree spliting
+                'DT__max_depth': list(range(5, 16, 2)) ### min, max, step
+            }]
+        },
+        'random_forest': {
+            'pipe': Pipeline([('scaler', StandardScaler()), ('RF', RandomForestClassifier(random_state=1234))]),
+            'param_grid': [{
+                'RF__criterion': ['gini', 'entropy'],
+                'RF__max_depth': list(range(5, 16, 2)),  ### how deep is each tree
+                'RF__n_estimators': list(range(100, 501, 100)) ### number of bootstrapped dataset
+                }]
+        },
+        'xgb' : {
+            'pipe' : Pipeline([('scaler', StandardScaler()), ('XGB', XGBClassifier(random_state=1234))]),
+            'param_grid' : [{
+                'XGB__learning_rate' : [0.01, 0.05, 0.1, 0.2, 0.3],
+                'XGB__max_depth' : list(range(5, 16, 2)),
+                'XGB__n_estimators' : list(range(100, 501, 100))
+        }]
+    }
+            }
+
+    scores = []
+
+    for model_name, model_params in models.items():
+        gs = GridSearchCV(model_params['pipe'],
+                  model_params['param_grid'],
+                  scoring=['accuracy', 'roc_auc'],
+                  cv=KFold(n_splits=10, shuffle=True, random_state=1234),
+                  return_train_score=True,
+                  refit='accuracy')
+
+        gs.fit(X, y)
+        scores.append({
+            'model': model_name,
+            'best_parameters': gs.best_params_,
+            'score': gs.best_score_
+        })
+
+    return pd.DataFrame(scores, columns=['model', 'best_parameters', 'score'])
+```
+
+```python
+best_model_train = find_best_model(X_train, y_train)
+# best_model_test = find_best_model(X_test, y_test) ### not really needed but could use it to see the difference
+
+pd.set_option('display.max_columns', None)
+pd.set_option('display.max_rows', None)
+pd.set_option('display.max_colwidth', None)
+
+print(best_model_train)
+# print(best_model_test)
+```
+
+<div>
+  model  \
+0  logistic_regression   
+1        decision_tree   
+2        random_forest   
+3                  xgb   
+
+  best_parameters  \
+0                                          {'LR__C': 0.1, 'LR__l1_ratio': 0.8}   
+1                                {'DT__criterion': 'gini', 'DT__max_depth': 9}   
+2   {'RF__criterion': 'entropy', 'RF__max_depth': 15, 'RF__n_estimators': 500}   
+3  {'XGB__learning_rate': 0.1, 'XGB__max_depth': 15, 'XGB__n_estimators': 200}   
+
+score  
+0  0.720971  
+1  0.722280  
+2  0.772306  
+3  0.772481  
+</div>
+
+These chosen model gives about 74% accuracy, not ideal or very reliable at predicting but it is obviously better than random guessing of 50% accuracy. The similar score on the train and test data, while being far away from 100% suggest that it is not a case of overfitting
+
+# Evaluation
+
+```python
+# CV score from random forest
+from sklearn.model_selection import cross_val_score
+scores = cross_val_score(RandomForestClassifier(criterion='entropy', max_depth=15, n_estimators=500, random_state=1234), X_train, y_train, cv=10)
+print('10 fold CV avg Accuracy : {}'.format(scores.mean()))
+```
+10 fold CV avg Accuracy : 0.7757555616950178
+
+```python
+# CV score from XGB
+
+from sklearn.model_selection import cross_val_score
+scores = cross_val_score(XGBClassifier(n_estimators=200, max_depth=15, learning_rate=0.1, random_state=1234), X_train, y_train, cv=5)
+print('5 fold CV avg Accuracy : {}'.format(scores.mean()))
+```
+5 fold CV avg Accuracy : 0.7656712279507208
+
+Visualize decision tree structure
+```python
+### visualize decision trees
+from sklearn.tree import plot_tree
+
+tree_model = DecisionTreeClassifier(criterion='gini', max_depth=9, class_weight='balanced', random_state=1234)
+tree_model.fit(X_train, y_train)
+
+plt.figure(figsize=(20,10), dpi=1000)
+plot_tree(tree_model, feature_names=X.columns, class_names=['0', '1'], filled=True)
+plt.show()
+```
+
+Visualize random forest trees, but only a section
+```python
+from sklearn.tree import plot_tree
+
+rf_model = RandomForestClassifier(criterion='entropy', max_depth=3, n_estimators=3, random_state=1234)
+rf_model.fit(X, y)
+
+plt.figure(figsize=(20,10), dpi=1000)
+for i, tree_in_rf in enumerate(rf_model.estimators_):
+    plt.subplot(1, len(rf_model.estimators_), i + 1)
+    plot_tree(tree_in_rf, feature_names=X.columns, class_names=['0', '1'], filled=True)
+    plt.title(f'Tree {i}')
+
+plt.show()
+```
+
+### Confusion matrix for these two models
+```python
+from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
+
+rf = RandomForestClassifier(n_estimators=300, random_state=1234)
+rf.fit(X_train, y_train)
 
 
+y_pred = rf.predict(X_test)
+cm = confusion_matrix(y_test, y_pred)
 
+plt.figure(figsize=(10,7))
+p = sns.heatmap(cm, annot=True, cmap="Blues", fmt='g')
+plt.title('Confusion matrix for Random Forest Classifier Model - Test Set')
+plt.xlabel('Predicted Values')
+plt.ylabel('Actual Values')
+plt.show()
+
+report = classification_report(y_test, y_pred, output_dict=True)
+report_df = pd.DataFrame(report).transpose()
+print(report_df)
+```
+
+![CMRF](https://github.com/Pinegraphite123/Smoking-prediction/blob/main/Graphs/Confusion%20matrix%20for%20Random%20Forest%20Classifier%20Model%20-%20Test%20Set.png?raw=true)
+
+```python
+xgb = XGBClassifier(n_estimators=300, max_depth=15, learning_rate=0.05, random_state=1234)
+xgb.fit(X_train, y_train)
+
+
+y_pred = xgb.predict(X_test)
+cm = confusion_matrix(y_test, y_pred)
+
+plt.figure(figsize=(10,7))
+p = sns.heatmap(cm, annot=True, cmap="Blues", fmt='g')
+plt.title('Confusion matrix for XGB Classifier Model - Test Set')
+plt.xlabel('Predicted Values')
+plt.ylabel('Actual Values')
+plt.show()
+```
+
+![CMXGB](https://github.com/Pinegraphite123/Smoking-prediction/blob/main/Graphs/Confusion%20matrix%20for%20XGB%20Classifier%20Model%20-%20Test%20Set.png?raw=true)
+
+```python
+classification_report(y_test, y_pred, output_dict=True)
+```
+<div>
+{'0': {'precision': 0.8353708231458843,
+  'recall': 0.7115584866365845,
+  'f1-score': 0.7685098406747891,
+  'support': 2881},
+ '1': {'precision': 0.7461820403176542,
+  'recall': 0.8580962416578855,
+  'f1-score': 0.798235582421173,
+  'support': 2847},
+ 'accuracy': 0.7843924581005587,
+ 'macro avg': {'precision': 0.7907764317317693,
+  'recall': 0.784827364147235,
+  'f1-score': 0.783372711547981,
+  'support': 5728},
+ 'weighted avg': {'precision': 0.7910411330774537,
+  'recall': 0.7843924581005587,
+  'f1-score': 0.7832844891999209,
+  'support': 5728}}
+</div>
+  
 
 
 
