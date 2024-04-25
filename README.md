@@ -394,7 +394,146 @@ classification_report(y_test, y_pred, output_dict=True)
   'support': 5728}}
 </div>
   
+# Semi-supervised
+PCA -> Random forest, feeding the output of PCA onto random forest to see if it gives a better CM score
+```python
+from sklearn.decomposition import PCA
 
+pca_xgb = Pipeline([
+    ('scaler', StandardScaler()),
+    ('pca', PCA(n_components=0.9, random_state=1234)),
+    ('xgb', XGBClassifier(n_estimators=200, max_depth=15, learning_rate=0.1, random_state=1234))
+])
+
+pca_xgb.fit(X_train, y_train)
+
+print('Train Accuracy score: {}'.format(pca_xgb.score(X_train, y_train)))
+print('Test Accuracy score: {}'.format(pca_xgb.score(X_test, y_test)))
+
+
+### Overfitting, reason unclear, eigenvalue vector might not work well with tree models
+```
+
+Train Accuracy score: 1.0
+
+Test Accuracy score: 0.7693925713113072
+
+```python
+from sklearn.decomposition import PCA
+
+pca_rf = Pipeline([
+    ('scaler', StandardScaler()),
+    ('pca', PCA(n_components=0.9, random_state=1234)),
+    ('rf', RandomForestClassifier(criterion='entropy', max_depth=15, n_estimators=500, random_state=1234))
+])
+
+pca_rf.fit(X_train, y_train)
+
+print('Train Accuracy score: {}'.format(pca_rf.score(X_train, y_train)))
+print('Test Accuracy score: {}'.format(pca_rf.score(X_test, y_test)))
+```
+
+See the transformed feature matrix from PCA
+```python
+from sklearn.decomposition import PCA
+
+scaler = StandardScaler()
+X_scaled = scaler.fit_transform(X)
+
+pca = PCA(n_components=2)
+X_pca = pca.fit_transform(X_scaled)
+
+print("Transformed Feature Matrix:\n", pd.DataFrame(X_pca))
+print("Explained Variance Ratio:", pca.explained_variance_ratio_)
+
+principal_df = pd.DataFrame(data = X_pca, columns = ['Principal Component 1', 'Principal Component 2'])
+
+plt.figure(figsize=(8, 6))
+plt.scatter(principal_df['Principal Component 1'], principal_df['Principal Component 2'])
+plt.xlabel('Principal Component 1')
+plt.ylabel('Principal Component 2')
+plt.title('PCA of Dataset')
+plt.grid(True)
+plt.show()
+```
+
+### Delete one more correlated feature to see the if there is an improvement on score
+```python
+from sklearn.decomposition import PCA
+
+train_df = train_df.drop(['relaxation'], axis=1) ### Comment or uncomment depending on steps
+X = train_df.iloc[:,:-1]
+y = train_df['smoking']
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=1234, stratify=y)
+
+pca_rf = Pipeline([
+    ('scaler', StandardScaler()),
+    ('pca', PCA(n_components=0.9, random_state=1234)),
+    ('rf', RandomForestClassifier(criterion='entropy', max_depth=15, n_estimators=500, random_state=1234))
+])
+
+pca_rf.fit(X_train, y_train)
+
+print('Train Accuracy score: {}'.format(pca_rf.score(X_train, y_train)))
+print('Test Accuracy score: {}'.format(pca_rf.score(X_test, y_test)))
+```
+
+Train Accuracy score: 0.9686087151697823
+
+Test Accuracy score: 0.7808131332563807
+
+
+# Unsupervised
+Random Forest Feature ranking
+```python
+# random forest feature ranking
+# import fresh dataset again
+
+train_df = pd.read_csv('/content/train_dataset.csv')
+X = train_df.iloc[:,:-1]
+y = train_df['smoking']
+
+
+rf = RandomForestClassifier(n_estimators=300, random_state=1234)
+rf.fit(X, y)
+```
+
+```python
+importances = rf.feature_importances_
+
+sorted_indices = np.argsort(importances)[::-1]
+
+plt.title('Feature Importance')
+plt.bar(range(X.shape[1]), importances[sorted_indices], align='center')
+plt.xticks(range(X.shape[1]), X.columns[sorted_indices], rotation=90)
+plt.tight_layout()
+plt.show()
+```
+
+### See if selecting only the most important features will give a better score
+```python
+X = train_df.loc[:, ['hemoglobin', 'Gtp', 'height(cm)']]
+y = train_df['smoking']
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=1234, stratify=y)
+scaler = StandardScaler()
+scaler.fit(X_train)
+X_train = scaler.transform(X_train)
+X_test = scaler.transform(X_test)
+```
+
+```python
+from sklearn.model_selection import cross_val_score
+
+scores = cross_val_score(RandomForestClassifier(criterion='entropy', max_depth=15, n_estimators=500, random_state=1234), X_train, y_train, cv=5)
+print('5 fold CV avg Accuracy : {}'.format(scores.mean()))
+
+### Not an improvement
+```
+
+By only selecting the top 3 important features, the previous best performing model returns a lower score, which may suggest a case of underfitting because there probably isnt enough feature to build enough trees.
+
+### Conclusion:
+These models achieved very similar performance. Perhaps either smoking or not is not a very good indicator of smoking statues. On top of that, the casual relationship is not clear: is a high blood glucose level result in smoking, or is smoking a result of high blood glucose? Instead of yes or no, years of smoking could be a better indicator.
 
 
 
