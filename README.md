@@ -10,6 +10,7 @@
 5.   [Semi-supervised learning](#fifth-bullet)
 6.   [Unsupervised learning](#sixth-bullet)
 
+### Each ML learning section contains evaluation
 
 ```python
 import pandas as pd
