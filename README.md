@@ -510,6 +510,8 @@ plt.tight_layout()
 plt.show()
 ```
 
+![Importance](https://github.com/Pinegraphite123/Smoking-prediction/blob/main/Graphs/Feature%20importance.png?raw=true)
+
 ### See if selecting only the most important features will give a better score
 ```python
 X = train_df.loc[:, ['hemoglobin', 'Gtp', 'height(cm)']]
