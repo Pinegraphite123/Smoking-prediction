@@ -3,12 +3,12 @@
 ## Pine Xie 
 
 ## Workflow
-1.   Exploratory Data Analysis
-2.   Classification imbalance
-3.   Feature selection
-4.   Supervised learning
-5.   Semi-supervised learning
-6.   Unsupervised learning
+1.   [Exploratory Data Analysis](#first-bullet)
+2.   [Classification imbalance](#second-bullet)
+3.   [Feature selection](#third-bullet)
+4.   [Supervised learning](#fourth-bullet)
+5.   [Semi-supervised learning](#fifth-bullet)
+6.   [Unsupervised learning](#sixth-bullet)
 
 
 ```python
@@ -30,7 +30,8 @@ from sklearn.model_selection import GridSearchCV, KFold, RandomizedSearchCV, tra
 Download data from kaggle at https://www.kaggle.com/datasets/gauravduttakiit/smoker-status-prediction-using-biosignals/data?select=train_dataset.csv
 Use train set only since test set does not have label so it cannot be evaluated
 
-Exploratory data analysis
+## Exploratory Data Analysis <a class="anchor" id="first-bullet"></a>
+
 ```python
 train_df = pd.read_csv('/content/train_dataset.csv')
 print(train_df.head())
@@ -55,7 +56,7 @@ print(train_df.head())
 train_df.isnull().sum()
 ```
 
-## Class imbalance handling
+## Class imbalance handling <a class="anchor" id="second-bullet"></a>
 ### Check class imbalance
 ```python
 ax = sns.countplot(x='smoking', data=(train_df))
@@ -91,7 +92,7 @@ ax.set_xticklabels(['non-smoking', 'smoking'])
 train_df = downsampled
 ```
 
-# Feature selection
+# Feature selection <a class="anchor" id="third-bullet"></a>
 keep the important and meaningful feature and remove correlated features
 
 ```python
@@ -155,7 +156,7 @@ plt.show()
 ![CorrMatrixCleaned](https://github.com/Pinegraphite123/Smoking-prediction/blob/main/Graphs/CorrMatrixCleaned.png?raw=true)
 
 
-# Supervised learning
+# Supervised learning <a class="anchor" id="fourth-bullet"></a>
 Using Gridsearchcv to exhaustly find the best hyperparameter so you can tweek with other option to improve the model, such as adjusting train test split
 
 Split train data into train data and test data
@@ -280,7 +281,7 @@ score
 
 These chosen model gives about 74% accuracy, not ideal or very reliable at predicting but it is obviously better than random guessing of 50% accuracy. The similar score on the train and test data, while being far away from 100% suggest that it is not a case of overfitting
 
-# Evaluation
+## Evaluation on supervised models
 
 ```python
 # CV score from random forest
@@ -394,7 +395,7 @@ classification_report(y_test, y_pred, output_dict=True)
   'support': 5728}}
 </div>
   
-# Semi-supervised
+# Semi-supervised <a class="anchor" id="fifth-bullet"></a>
 PCA -> Random forest, feeding the output of PCA onto random forest to see if it gives a better CM score
 ```python
 from sklearn.decomposition import PCA
@@ -483,7 +484,7 @@ Train Accuracy score: 0.9686087151697823
 Test Accuracy score: 0.7808131332563807
 
 
-# Unsupervised
+# Unsupervised <a class="anchor" id="sixth-bullet"></a>
 Random Forest Feature ranking
 ```python
 # random forest feature ranking
